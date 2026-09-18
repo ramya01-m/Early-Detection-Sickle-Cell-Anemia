@@ -1,0 +1,303 @@
+# =========================================================
+# SICKLE CELL ANEMIA DETECTION USING
+# MobileNet + Global Average Pooling + XGBoost
+# =========================================================
+
+# ---------- 1. IMPORT LIBRARIES ----------
+import os
+import cv2
+import joblib
+import numpy as np
+import matplotlib.pyplot as plt
+
+from tensorflow.keras.applications import MobileNet
+from tensorflow.keras.applications.mobilenet import preprocess_input
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    roc_auc_score
+)
+
+import xgboost as xgb
+
+
+# ---------- 2. DATASET PATH ----------
+DATASET_DIR = r"C:\sickle-cell-disease-dataset"
+IMG_SIZE = 224
+
+
+# ---------- 3. VERIFY DATASET ----------
+print("Dataset folders:", os.listdir(DATASET_DIR))
+
+print(
+    "Normal images:",
+    len(os.listdir(os.path.join(DATASET_DIR, "Normal")))
+)
+
+print(
+    "Sickle images:",
+    len(os.listdir(os.path.join(DATASET_DIR, "Sickle")))
+)
+
+
+# ---------- 4. LOAD & PREPROCESS IMAGES ----------
+def load_images(dataset_dir):
+
+    X = []
+    y = []
+
+    class_names = sorted(os.listdir(dataset_dir))
+
+    for label in class_names:
+
+        class_path = os.path.join(dataset_dir, label)
+
+        for img_name in os.listdir(class_path):
+
+            img_path = os.path.join(class_path, img_name)
+
+            img = cv2.imread(img_path)
+
+            if img is None:
+                continue
+
+            # Resize image
+            img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+
+            # Preprocess image
+            img = preprocess_input(img)
+
+            X.append(img)
+            y.append(class_names.index(label))
+
+    return np.array(X), np.array(y), class_names
+
+
+# Load dataset
+X, y, class_names = load_images(DATASET_DIR)
+
+print("Total images:", X.shape[0])
+print("Classes:", class_names)
+
+
+# ---------- 5. CHECK CLASS BALANCE ----------
+unique, counts = np.unique(y, return_counts=True)
+
+class_distribution = dict(zip(class_names, counts))
+
+print("Class Distribution:", class_distribution)
+
+# Handle imbalance
+scale_pos_weight = counts[0] / counts[1]
+
+
+# ---------- 6. TRAIN - TEST SPLIT ----------
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.1,
+    random_state=42,
+    stratify=y
+)
+
+
+# ---------- 7. DATA AUGMENTATION ----------
+datagen = ImageDataGenerator(
+    rotation_range=15,
+    zoom_range=0.15,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    horizontal_flip=True
+)
+
+datagen.fit(X_train)
+
+X_aug = []
+y_aug = []
+
+for X_batch, y_batch in datagen.flow(
+    X_train,
+    y_train,
+    batch_size=32
+):
+
+    X_aug.append(X_batch)
+    y_aug.append(y_batch)
+
+    if len(X_aug) * 32 >= len(X_train):
+        break
+
+# Combine augmented data
+X_train = np.vstack(X_aug)
+y_train = np.hstack(y_aug)
+
+print("Training set after augmentation:", X_train.shape)
+
+
+# ---------- 8. MOBILENET FEATURE EXTRACTOR ----------
+base_model = MobileNet(
+    weights="imagenet",
+    include_top=False,
+    input_shape=(IMG_SIZE, IMG_SIZE, 3)
+)
+
+# Freeze most layers
+for layer in base_model.layers[:-20]:
+    layer.trainable = False
+
+# Global Average Pooling
+gap = GlobalAveragePooling2D()(base_model.output)
+
+# Feature extractor model
+feature_extractor = Model(
+    inputs=base_model.input,
+    outputs=gap
+)
+
+
+# ---------- 9. FEATURE EXTRACTION ----------
+def extract_features(model, data):
+
+    features = model.predict(
+        data,
+        batch_size=32,
+        verbose=0
+    )
+
+    return features
+
+
+# Extract features
+X_train_features = extract_features(
+    feature_extractor,
+    X_train
+)
+
+X_test_features = extract_features(
+    feature_extractor,
+    X_test
+)
+
+print("Feature Vector Shape:", X_train_features.shape)
+
+
+# ---------- 10. XGBOOST CLASSIFIER ----------
+xgb_model = xgb.XGBClassifier(
+    n_estimators=150,
+    max_depth=4,
+    learning_rate=0.1,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    scale_pos_weight=scale_pos_weight,
+    objective="binary:logistic",
+    eval_metric="logloss",
+    random_state=42
+)
+
+# Train model
+xgb_model.fit(X_train_features, y_train)
+
+
+# ---------- 11. MODEL EVALUATION ----------
+y_pred = xgb_model.predict(X_test_features)
+
+y_prob = xgb_model.predict_proba(
+    X_test_features
+)[:, 1]
+
+# Accuracy
+accuracy = accuracy_score(y_test, y_pred) * 100
+
+# ROC AUC
+roc_auc = roc_auc_score(y_test, y_prob)
+
+print(f"\nAccuracy: {accuracy:.2f}%")
+print(f"ROC-AUC Score: {roc_auc:.3f}")
+
+# Classification Report
+print("\nClassification Report:\n")
+
+print(
+    classification_report(
+        y_test,
+        y_pred,
+        target_names=class_names
+    )
+)
+
+# Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+
+print("Confusion Matrix:\n")
+print(cm)
+
+
+# ---------- 12. SAVE MODEL ----------
+joblib.dump(
+    xgb_model,
+    "mobilenet_xgboost_sickle_cell.pkl"
+)
+
+print("\nModel saved successfully!")
+
+
+# =========================================================
+# 13. SINGLE IMAGE PREDICTION
+# =========================================================
+def predict_single_image(image_path):
+
+    # Read image
+    img = cv2.imread(image_path)
+
+    if img is None:
+        print("Error: Image not found!")
+        return
+
+    # Resize image
+    img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+
+    # Preprocess image
+    img = preprocess_input(img)
+
+    # Add batch dimension
+    img = np.expand_dims(img, axis=0)
+
+    # Extract features
+    features = extract_features(
+        feature_extractor,
+        img
+    )
+
+    # Predict class
+    prediction = xgb_model.predict(features)
+
+    # Get result
+    result = class_names[prediction[0]]
+
+    # Print prediction only
+    print("\nPrediction:", result)
+
+    return result
+
+
+# ---------- 14. TEST NORMAL IMAGE ----------
+test_image = r"C:\Users\ELCOT\Downloads\sick1.jpg"
+
+predict_single_image(test_image)
+
+
+# ---------- 15. DISPLAY TEST IMAGE ----------
+img = cv2.imread(test_image)
+
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+plt.imshow(img)
+plt.title("Test Image")
+plt.axis("off")
+plt.show()
