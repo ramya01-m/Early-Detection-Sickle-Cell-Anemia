@@ -78,30 +78,30 @@ sickle-cell-disease-dataset/
     └── ...
 ```
 
-## 📁 **Project Structure**
+## 📁 Project Structure
 
+```text
 Early-Detection-of-Sickle-Cell-Anemia/
 │
-├── 📁 code/
-│   ├── 📄 .gitkeep
-│   └── 📄 SCA_code
+├── code/
+│   ├── SCA_code
+│   
+├── dataset/
+│   └── README.md
 │
-├── 📁 dataset/
-│   ├── 📄 .gitkeep
-│   └── 📄 README.md
+├── output/
+│   ├── Result.png
 │
-├── 📁 output/
-│   ├── 📄 Result.png
-│   └── 📄 gitkeep
+├── requirements.txt
 │
-├── 📄 README.md
-└── 📄 requirements.txt
+└── README.md
+```
 
 ## 📊 Results
 
 The trained model is evaluated using classification metrics and visualizations such as the confusion matrix and performance graphs.
 
-The final results and output screenshots are included in the **outputs**  folder.
+The final results and output screenshot is included in the **output** folder.
 
 ## 💡 Applications
 
