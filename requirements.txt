@@ -1,0 +1,11 @@
+| Library         | Purpose                        |
+| --------------- | ------------------------------ |
+| `tensorflow`    | CNN / MobileNet model          |
+| `numpy`         | Numerical operations           |
+| `pandas`        | Data handling                  |
+| `matplotlib`    | Accuracy/loss graphs           |
+| `seaborn`       | Confusion matrix visualization |
+| `scikit-learn`  | Metrics and data processing    |
+| `xgboost`       | XGBoost classifier             |
+| `opencv-python` | Image processing               |
+
