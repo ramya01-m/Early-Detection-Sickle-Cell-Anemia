@@ -78,7 +78,8 @@ sickle-cell-disease-dataset/
     └── ...
 ```
 
-📁 Project Structure
+## 📁 **Project Structure**
+
 Early-Detection-of-Sickle-Cell-Anemia/
 │
 ├── 📁 code/
