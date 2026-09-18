@@ -1,3 +1,7 @@
+## Dataset link
+
+https://www.kaggle.com/datasets/florencetushabe/sickle- cell-disease-dataset
+
 # Dataset
 
 This project uses a blood smear image dataset for the classification of:
@@ -21,5 +25,3 @@ Usage
 
 The dataset is used for training and evaluating the deep learning model for
 Sickle Cell Anemia image classification.
-
-The original image dataset is not included in this GitHub repository.
