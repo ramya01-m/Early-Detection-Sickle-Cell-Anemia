@@ -1,4 +1,4 @@
-## Dataset link
+# Dataset link
 
 https://www.kaggle.com/datasets/florencetushabe/sickle- cell-disease-dataset
 
@@ -11,7 +11,7 @@ This project uses a blood smear image dataset for the classification of:
 
 The images are organized into two folders based on their class.
 
-## Dataset Structure
+# Dataset Structure
 
 ```text
 sickle-cell-disease-dataset/
